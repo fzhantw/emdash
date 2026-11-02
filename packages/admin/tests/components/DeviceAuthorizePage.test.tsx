@@ -1,6 +1,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import "../../dist/styles.css";
 import { render } from "../utils/render.tsx";
 
 const mockApiFetch = vi.fn();
@@ -16,6 +17,7 @@ vi.mock("../../src/lib/api", async () => {
 const { DeviceAuthorizePage } = await import("../../src/components/DeviceAuthorizePage");
 
 const editor = { id: "user-1", email: "editor@example.com", name: "Editor", role: 40 };
+const TRANSPARENT = "rgba(0, 0, 0, 0)";
 
 function respondWith(lookup: Response) {
 	mockApiFetch.mockImplementation((input: string) => {
@@ -23,6 +25,23 @@ function respondWith(lookup: Response) {
 		if (input.includes("/oauth/device/authorize?")) return Promise.resolve(lookup);
 		return Promise.reject(new Error(`Unexpected request: ${input}`));
 	});
+}
+
+function labelGaps(button: HTMLElement): [number, number] {
+	const text = document.createTreeWalker(button, NodeFilter.SHOW_TEXT).nextNode()!;
+	const range = document.createRange();
+	range.selectNodeContents(text);
+	const label = range.getBoundingClientRect();
+	const box = button.getBoundingClientRect();
+	return [label.left - box.left, box.right - label.right];
+}
+
+function surfaceColor(element: HTMLElement): string {
+	for (let node = element.parentElement; node; node = node.parentElement) {
+		const color = getComputedStyle(node).backgroundColor;
+		if (color !== TRANSPARENT) return color;
+	}
+	return TRANSPARENT;
 }
 
 describe("DeviceAuthorizePage", () => {
@@ -106,5 +125,26 @@ describe("DeviceAuthorizePage", () => {
 			)
 			.toBeInTheDocument();
 		await expect.element(screen.getByRole("button", { name: "Authorize" })).toBeDisabled();
+	});
+
+	it("renders Authorize as a primary action with its label centered", async () => {
+		respondWith(
+			Response.json({
+				data: { requestedScopes: ["content:read"], grantedScopes: ["content:read"] },
+			}),
+		);
+
+		const screen = await render(<DeviceAuthorizePage />);
+
+		const authorize = screen.getByRole("button", { name: "Authorize" });
+		await expect.element(authorize).toBeEnabled();
+		const button = authorize.element() as HTMLElement;
+
+		const [start, end] = labelGaps(button);
+		expect(Math.abs(start - end)).toBeLessThan(1);
+
+		const background = getComputedStyle(button).backgroundColor;
+		expect(background).not.toBe(TRANSPARENT);
+		expect(background).not.toBe(surfaceColor(button));
 	});
 });

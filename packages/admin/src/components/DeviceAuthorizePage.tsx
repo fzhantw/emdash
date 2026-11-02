@@ -291,7 +291,8 @@ export function DeviceAuthorizePage() {
 							<div className="flex gap-2 mt-4">
 								<Button
 									type="submit"
-									className="flex-1"
+									variant="primary"
+									className="flex-1 justify-center"
 									disabled={!codeComplete || !canApprove || pageState === "submitting"}
 								>
 									{pageState === "submitting" ? t`Authorizing...` : t`Authorize`}
